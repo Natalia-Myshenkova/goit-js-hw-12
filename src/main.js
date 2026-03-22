@@ -39,19 +39,12 @@ submit.addEventListener('submit', async (e) => {
   clearGallery();
   showLoader();
   hideLoadMoreButton();
+
   try {
     const data = await getImagesByQuery(currentQuery, currentPage);
 
     if (!data || data.hits.length === 0) {
-      iziToast.error({
-        message: 'Sorry, there are no images matching your search query. Please try again!',
-        position: "topRight",
-        backgroundColor: '#EF4040',
-        titleColor: '#FFFFFF',
-        messageColor: '#FFFFFF',
-        iconColor: '#FFFFFF',
-        color: '#FFFFFF',
-      });
+      iziToast.error({ message: 'Sorry, there are no images matching your search query. Please try again!' });
       return;
     }
 
@@ -60,8 +53,8 @@ submit.addEventListener('submit', async (e) => {
 
     createGallery(data.hits);
     checkEnd();
+    submit.reset();
 
-    submit.reset(); 
   } catch (error) {
     console.error(error);
     iziToast.error({ message: 'Помилка при запиті!' });
@@ -70,16 +63,16 @@ submit.addEventListener('submit', async (e) => {
   }
 });
 
-
 loadMoreBtn.addEventListener('click', async () => {
   currentPage += 1;
+
   showLoader();
+  hideLoadMoreButton();
 
   try {
     const data = await getImagesByQuery(currentQuery, currentPage);
 
     if (!data || data.hits.length === 0) {
-      hideLoadMoreButton();
       iziToast.info({ message: "We're sorry, but you've reached the end of search results." });
       return;
     }
@@ -88,11 +81,13 @@ loadMoreBtn.addEventListener('click', async () => {
     createGallery(data.hits);
     checkEnd();
 
-    const card = document.querySelector('.gallery li');
-    if (card) {
-      const height = card.getBoundingClientRect().height;
+    const galleryItems = document.querySelectorAll('.gallery li');
+    if (galleryItems.length) {
+      const lastCard = galleryItems[galleryItems.length - data.hits.length];
+      const { height } = lastCard.getBoundingClientRect();
       window.scrollBy({ top: height * 2, behavior: 'smooth' });
     }
+
   } catch (error) {
     console.error(error);
     iziToast.error({ message: 'Помилка при завантаженні додаткових зображень!' });
