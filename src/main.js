@@ -3,84 +3,99 @@ import { createGallery, clearGallery, showLoader, hideLoader, showLoadMoreButton
 import iziToast from "izitoast";
 import "izitoast/dist/css/iziToast.min.css";
 
-const form = document.querySelector('.form');
+const submit = document.querySelector('.form');
 const loadMoreBtn = document.querySelector('.load-more');
-hideLoadMoreButton();
+
 let currentQuery = '';
 let currentPage = 1;
-let totalHits = 0;
+let totalHits = 0;       
+let loadedImages = 0;  
 
-form.addEventListener('submit', async (e) => {
+function checkEnd() {
+  if (loadedImages >= totalHits) {
+    hideLoadMoreButton();
+    iziToast.info({ message: "We're sorry, but you've reached the end of search results." });
+  } else {
+    showLoadMoreButton();
+  }
+}
+
+submit.addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  const input = form.querySelector('input[name="search-text"]');
+  const input = submit.querySelector('input[name="search-text"]');
   const query = input.value.trim();
 
   if (!query) {
-    iziToast.error({ message: 'Please enter a search term!' });
+    iziToast.error({ title: 'Error', message: 'Please enter a search term!' });
     return;
   }
 
   currentQuery = query;
   currentPage = 1;
+  loadedImages = 0;
+  totalHits = 0;
 
   clearGallery();
+  showLoader();
   hideLoadMoreButton();
+  try {
+    const data = await getImagesByQuery(currentQuery, currentPage);
+
+    if (!data || data.hits.length === 0) {
+      iziToast.error({
+        message: 'Sorry, there are no images matching your search query. Please try again!',
+        position: "topRight",
+        backgroundColor: '#EF4040',
+        titleColor: '#FFFFFF',
+        messageColor: '#FFFFFF',
+        iconColor: '#FFFFFF',
+        color: '#FFFFFF',
+      });
+      return;
+    }
+
+    totalHits = data.totalHits;
+    loadedImages = data.hits.length;
+
+    createGallery(data.hits);
+    checkEnd();
+
+    submit.reset(); 
+  } catch (error) {
+    console.error(error);
+    iziToast.error({ message: 'Помилка при запиті!' });
+  } finally {
+    hideLoader();
+  }
+});
+
+
+loadMoreBtn.addEventListener('click', async () => {
+  currentPage += 1;
   showLoader();
 
   try {
     const data = await getImagesByQuery(currentQuery, currentPage);
 
     if (!data || data.hits.length === 0) {
-      iziToast.error({
-        message: 'Sorry, there are no images matching your search query.',
-      });
+      hideLoadMoreButton();
+      iziToast.info({ message: "We're sorry, but you've reached the end of search results." });
       return;
     }
 
-    totalHits = data.totalHits;
-
+    loadedImages += data.hits.length;
     createGallery(data.hits);
+    checkEnd();
 
-    if (currentPage * 15 < totalHits) {
-      showLoadMoreButton();
+    const card = document.querySelector('.gallery li');
+    if (card) {
+      const height = card.getBoundingClientRect().height;
+      window.scrollBy({ top: height * 2, behavior: 'smooth' });
     }
-
-    form.reset();
-
   } catch (error) {
-    iziToast.error({ message: 'Error fetching images!' });
-  } finally {
-    hideLoader();
-  }
-});
-
-loadMoreBtn.addEventListener('click', async () => {
-  currentPage += 1;
-
-  showLoader();
-
-  try {
-    const data = await getImagesByQuery(currentQuery, currentPage);
-
-    createGallery(data.hits);
-
-    const card = document.querySelector('.gallery li:last-child');
-    const height = card.getBoundingClientRect().height;
-
-    window.scrollBy({
-      top: height * 2,
-      behavior: 'smooth',
-    });
-    if (currentPage * 15 >= totalHits) {
-      hideLoadMoreButton();
-      iziToast.info({
-        message: "We're sorry, but you've reached the end of search results.",
-      });
-    }
-
-  } catch (error) {
-    iziToast.error({ message: 'Error fetching images!' });
+    console.error(error);
+    iziToast.error({ message: 'Помилка при завантаженні додаткових зображень!' });
   } finally {
     hideLoader();
   }
